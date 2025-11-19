@@ -1,17 +1,29 @@
 import { NavLink } from 'react-router-dom';
 
+const links = [
+  { to: '/', label: 'Customers', end: true },
+  { to: '/trainings', label: 'Trainings' },
+];
+
 const NavBar = () => {
   return (
-    <nav>
-      <ul>
-        <li>
-          <NavLink to="/">Customers</NavLink>
-        </li>
-        <li>
-          <NavLink to="/trainings">Trainings</NavLink>
-        </li>
-      </ul>
-    </nav>
+    <header className="navbar">
+      <div className="navbar__brand">Frontend Personal Trainer</div>
+      <nav className="navbar__nav">
+        {links.map(({ to, label, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `navbar__link${isActive ? ' navbar__link--active' : ''}`
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+    </header>
   );
 };
 
