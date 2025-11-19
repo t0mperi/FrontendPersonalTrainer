@@ -9,9 +9,14 @@ const createIdFromSelfLink = (selfHref?: string) => {
   return selfHref.substring(selfHref.lastIndexOf('/') + 1);
 };
 
+type SortKey = 'name' | 'email' | 'city' | 'streetaddress';
+type SortDirection = 'asc' | 'desc';
+
 const CustomersPage = () => {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +58,40 @@ const CustomersPage = () => {
     );
   }, [customers, search]);
 
+  const sortedCustomers = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      switch (sortKey) {
+        case 'email':
+          return a.email.localeCompare(b.email) * direction;
+        case 'city':
+          return a.city.localeCompare(b.city) * direction;
+        case 'streetaddress':
+          return a.streetaddress.localeCompare(b.streetaddress) * direction;
+        case 'name':
+        default: {
+          const nameA = `${a.firstname} ${a.lastname}`.trim();
+          const nameB = `${b.firstname} ${b.lastname}`.trim();
+          return nameA.localeCompare(nameB) * direction;
+        }
+      }
+    });
+  }, [filtered, sortDirection, sortKey]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortHint = (key: SortKey) => {
+    if (sortKey !== key) return null;
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
+
   return (
     <section>
       <header>
@@ -78,23 +117,39 @@ const CustomersPage = () => {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
+              <th>
+                <button type="button" onClick={() => toggleSort('name')}>
+                  Name{renderSortHint('name')}
+                </button>
+              </th>
+              <th>
+                <button type="button" onClick={() => toggleSort('email')}>
+                  Email{renderSortHint('email')}
+                </button>
+              </th>
               <th>Phone</th>
-              <th>Address</th>
+              <th>
+                <button type="button" onClick={() => toggleSort('streetaddress')}>
+                  Address{renderSortHint('streetaddress')}
+                </button>
+              </th>
+              <th>
+                <button type="button" onClick={() => toggleSort('city')}>
+                  City{renderSortHint('city')}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((customer) => (
+            {sortedCustomers.map((customer) => (
               <tr key={customer.id}>
                 <td>
                   {customer.firstname} {customer.lastname}
                 </td>
                 <td>{customer.email}</td>
                 <td>{customer.phone}</td>
-                <td>
-                  {customer.streetaddress}, {customer.postcode} {customer.city}
-                </td>
+                <td>{customer.streetaddress}</td>
+                <td>{customer.city}</td>
               </tr>
             ))}
           </tbody>
