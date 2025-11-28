@@ -32,6 +32,39 @@ export const fetchCustomers = async (): Promise<CustomerDto[]> => {
   return data._embedded?.customers ?? [];
 };
 
+export type CreateCustomerPayload = {
+  firstname: string;
+  lastname: string;
+  streetaddress: string;
+  postcode: string;
+  city: string;
+  email: string;
+  phone: string;
+};
+
+export const createCustomer = async (
+  payload: CreateCustomerPayload
+): Promise<CustomerDto | undefined> => {
+  const response = await fetch(`${API_BASE_URL}/customers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create customer: ${response.statusText}`);
+  }
+
+  try {
+    return (await response.json()) as CustomerDto;
+  } catch {
+    // Some endpoints respond with empty body on success; fall back to undefined.
+    return undefined;
+  }
+};
+
 type TrainingResource = {
   date: string;
   duration: number;

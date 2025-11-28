@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { fetchCustomers } from '../services/personalTrainerApi';
-import type { CustomerDto } from '../services/personalTrainerApi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
+import { fetchCustomers, createCustomer } from '../services/personalTrainerApi';
+import type { CustomerDto, CreateCustomerPayload } from '../services/personalTrainerApi';
 
 type CustomerRow = CustomerDto & { id: string };
 
@@ -12,6 +13,11 @@ const createIdFromSelfLink = (selfHref?: string) => {
 type SortKey = 'name' | 'email' | 'city' | 'streetaddress';
 type SortDirection = 'asc' | 'desc';
 
+const toCustomerRow = (customer: CustomerDto): CustomerRow => ({
+  ...customer,
+  id: createIdFromSelfLink(customer._links?.self?.href),
+});
+
 const CustomersPage = () => {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState('');
@@ -19,28 +25,63 @@ const CustomersPage = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const initialFormState: CreateCustomerPayload = {
+    firstname: '',
+    lastname: '',
+    email: '',
+    phone: '',
+    streetaddress: '',
+    postcode: '',
+    city: '',
+  };
+  const [formValues, setFormValues] = useState<CreateCustomerPayload>(initialFormState);
+
+  const loadCustomers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchCustomers();
+      setCustomers(data.map(toCustomerRow));
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load customers.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setIsLoading(true);
-        const data = await fetchCustomers();
-        setCustomers(
-          data.map((customer) => ({
-            ...customer,
-            id: createIdFromSelfLink(customer._links?.self?.href),
-          }))
-        );
-      } catch (err) {
-        console.error(err);
-        setError('Failed to load customers.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    loadCustomers();
+  }, [loadCustomers]);
 
-    load();
-  }, []);
+  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setFormValues((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError(null);
+    try {
+      setIsSubmitting(true);
+      const createdCustomer = await createCustomer(formValues);
+      setFormValues(initialFormState);
+      if (createdCustomer) {
+        setCustomers((prev) => [...prev, toCustomerRow(createdCustomer)]);
+      } else {
+        await loadCustomers();
+      }
+    } catch (err) {
+      console.error(err);
+      setFormError('Failed to add customer.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!search.trim()) return customers;
@@ -98,6 +139,93 @@ const CustomersPage = () => {
         <h1>Customers</h1>
         <p>Manage your customer base.</p>
       </header>
+
+      <form className="customer-form" onSubmit={handleSubmit}>
+        <h2>Add new customer</h2>
+        <div className="customer-form__grid">
+          <label htmlFor="firstname">
+            First name
+            <input
+              id="firstname"
+              name="firstname"
+              value={formValues.firstname}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="lastname">
+            Last name
+            <input
+              id="lastname"
+              name="lastname"
+              value={formValues.lastname}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="email">
+            Email
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={formValues.email}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="phone">
+            Phone
+            <input
+              id="phone"
+              name="phone"
+              value={formValues.phone}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="streetaddress">
+            Street address
+            <input
+              id="streetaddress"
+              name="streetaddress"
+              value={formValues.streetaddress}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="postcode">
+            Postcode
+            <input
+              id="postcode"
+              name="postcode"
+              value={formValues.postcode}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+          <label htmlFor="city">
+            City
+            <input
+              id="city"
+              name="city"
+              value={formValues.city}
+              onChange={handleInputChange}
+              required
+            />
+          </label>
+        </div>
+        {formError && (
+          <p className="customer-form__error" role="alert">
+            {formError}
+          </p>
+        )}
+        <div className="customer-form__actions">
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : 'Save customer'}
+          </button>
+        </div>
+      </form>
 
       <div>
         <label htmlFor="customer-search">Search customers</label>
