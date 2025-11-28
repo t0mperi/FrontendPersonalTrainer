@@ -65,6 +65,39 @@ export const createCustomer = async (
   }
 };
 
+export const updateCustomer = async (
+  customerUrl: string,
+  payload: CreateCustomerPayload
+): Promise<CustomerDto | undefined> => {
+  const response = await fetch(customerUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update customer: ${response.statusText}`);
+  }
+
+  try {
+    return (await response.json()) as CustomerDto;
+  } catch {
+    return undefined;
+  }
+};
+
+export const deleteCustomer = async (customerUrl: string): Promise<void> => {
+  const response = await fetch(customerUrl, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete customer: ${response.statusText}`);
+  }
+};
+
 type TrainingResource = {
   date: string;
   duration: number;

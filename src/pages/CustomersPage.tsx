@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { fetchCustomers, createCustomer } from '../services/personalTrainerApi';
+import {
+  fetchCustomers,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+} from '../services/personalTrainerApi';
 import type { CustomerDto, CreateCustomerPayload } from '../services/personalTrainerApi';
 
 type CustomerRow = CustomerDto & { id: string };
@@ -27,6 +32,9 @@ const CustomersPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerRow | null>(null);
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
   const initialFormState: CreateCustomerPayload = {
     firstname: '',
     lastname: '',
@@ -63,23 +71,93 @@ const CustomersPage = () => {
     }));
   };
 
+  const resetForm = () => {
+    setFormValues(initialFormState);
+    setEditingCustomer(null);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
+    setActionError(null);
+    const isEditMode = Boolean(editingCustomer);
+    const failureMessage = isEditMode ? 'Failed to update customer.' : 'Failed to add customer.';
     try {
       setIsSubmitting(true);
-      const createdCustomer = await createCustomer(formValues);
-      setFormValues(initialFormState);
-      if (createdCustomer) {
-        setCustomers((prev) => [...prev, toCustomerRow(createdCustomer)]);
+      if (isEditMode) {
+        const selfLink = editingCustomer?._links?.self?.href;
+        if (!selfLink) {
+          setFormError('Cannot update customer without a valid link.');
+          return;
+        }
+        const updatedCustomer = await updateCustomer(selfLink, formValues);
+        if (updatedCustomer) {
+          setCustomers((prev) =>
+            prev.map((customer) =>
+              customer.id === editingCustomer.id ? toCustomerRow(updatedCustomer) : customer
+            )
+          );
+        } else {
+          await loadCustomers();
+        }
+        resetForm();
       } else {
-        await loadCustomers();
+        const createdCustomer = await createCustomer(formValues);
+        resetForm();
+        if (createdCustomer) {
+          setCustomers((prev) => [...prev, toCustomerRow(createdCustomer)]);
+        } else {
+          await loadCustomers();
+        }
       }
     } catch (err) {
       console.error(err);
-      setFormError('Failed to add customer.');
+      setFormError(failureMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (customer: CustomerRow) => {
+    setFormError(null);
+    setActionError(null);
+    setEditingCustomer(customer);
+    setFormValues({
+      firstname: customer.firstname,
+      lastname: customer.lastname,
+      email: customer.email,
+      phone: customer.phone,
+      streetaddress: customer.streetaddress,
+      postcode: customer.postcode,
+      city: customer.city,
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (customer: CustomerRow) => {
+    setActionError(null);
+    const customerName = `${customer.firstname} ${customer.lastname}`.trim() || 'this customer';
+    const confirmed = window.confirm(`Delete ${customerName}? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    const selfLink = customer._links?.self?.href;
+    if (!selfLink) {
+      setActionError('Cannot delete customer without a valid link.');
+      return;
+    }
+
+    try {
+      setDeletingCustomerId(customer.id);
+      await deleteCustomer(selfLink);
+      setCustomers((prev) => prev.filter((item) => item.id !== customer.id));
+      if (editingCustomer?.id === customer.id) {
+        resetForm();
+      }
+    } catch (err) {
+      console.error(err);
+      setActionError('Failed to delete customer.');
+    } finally {
+      setDeletingCustomerId(null);
     }
   };
 
@@ -133,6 +211,10 @@ const CustomersPage = () => {
     return sortDirection === 'asc' ? ' ▲' : ' ▼';
   };
 
+  const isEditMode = Boolean(editingCustomer);
+  const submitLabel = isEditMode ? 'Update customer' : 'Save customer';
+  const submitBusyLabel = isEditMode ? 'Updating…' : 'Saving…';
+
   return (
     <section>
       <header>
@@ -141,7 +223,15 @@ const CustomersPage = () => {
       </header>
 
       <form className="customer-form" onSubmit={handleSubmit}>
-        <h2>Add new customer</h2>
+        <h2>{isEditMode ? 'Edit customer' : 'Add new customer'}</h2>
+        {isEditMode && editingCustomer && (
+          <p>
+            Updating{' '}
+            <strong>
+              {editingCustomer.firstname} {editingCustomer.lastname}
+            </strong>
+          </p>
+        )}
         <div className="customer-form__grid">
           <label htmlFor="firstname">
             First name
@@ -221,8 +311,13 @@ const CustomersPage = () => {
           </p>
         )}
         <div className="customer-form__actions">
+          {isEditMode && (
+            <button type="button" onClick={resetForm} disabled={isSubmitting}>
+              Cancel
+            </button>
+          )}
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Save customer'}
+            {isSubmitting ? submitBusyLabel : submitLabel}
           </button>
         </div>
       </form>
@@ -240,6 +335,11 @@ const CustomersPage = () => {
 
       {isLoading && <p>Loading customers…</p>}
       {error && <p>{error}</p>}
+      {actionError && (
+        <p className="customer-form__error" role="alert">
+          {actionError}
+        </p>
+      )}
 
       {!isLoading && !error && (
         <table>
@@ -266,6 +366,7 @@ const CustomersPage = () => {
                   City{renderSortHint('city')}
                 </button>
               </th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -278,6 +379,22 @@ const CustomersPage = () => {
                 <td>{customer.phone}</td>
                 <td>{customer.streetaddress}</td>
                 <td>{customer.city}</td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(customer)}
+                    disabled={isSubmitting}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(customer)}
+                    disabled={deletingCustomerId === customer.id}
+                  >
+                    {deletingCustomerId === customer.id ? 'Deleting…' : 'Delete'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
