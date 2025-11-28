@@ -113,6 +113,13 @@ export type TrainingDto = TrainingResource & {
   customer?: CustomerDto;
 };
 
+export type CreateTrainingPayload = {
+  date: string;
+  duration: number;
+  activity: string;
+  customer: string;
+};
+
 type TrainingsResponse = {
   _embedded?: {
     trainings?: TrainingDto[];
@@ -158,5 +165,27 @@ export const fetchTrainings = async (): Promise<TrainingDto[]> => {
   );
 
   return trainingsWithCustomers;
+};
+
+export const createTraining = async (
+  payload: CreateTrainingPayload
+): Promise<TrainingDto | undefined> => {
+  const response = await fetch(`${API_BASE_URL}/trainings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create training: ${response.statusText}`);
+  }
+
+  try {
+    return (await response.json()) as TrainingDto;
+  } catch {
+    return undefined;
+  }
 };
 
