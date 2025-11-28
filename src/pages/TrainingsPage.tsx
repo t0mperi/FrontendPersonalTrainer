@@ -6,6 +6,7 @@ import {
   fetchTrainings,
   fetchCustomers,
   createTraining,
+  deleteTraining,
 } from '../services/personalTrainerApi';
 import type { TrainingDto, CustomerDto } from '../services/personalTrainerApi';
 
@@ -43,6 +44,8 @@ const TrainingsPage = () => {
   });
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [isTrainingSubmitting, setIsTrainingSubmitting] = useState(false);
+  const [trainingActionError, setTrainingActionError] = useState<string | null>(null);
+  const [deletingTrainingId, setDeletingTrainingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -141,6 +144,37 @@ const TrainingsPage = () => {
       setTrainingError('Failed to add training.');
     } finally {
       setIsTrainingSubmitting(false);
+    }
+  };
+
+  const handleDeleteTraining = async (training: TrainingRow) => {
+    setTrainingActionError(null);
+    const trainingName = training.activity || 'this training';
+    const confirmed = window.confirm(
+      `Delete ${trainingName} for ${
+        training.customer
+          ? `${training.customer.firstname} ${training.customer.lastname}`
+          : 'selected customer'
+      }? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const trainingLink = training._links?.self?.href ?? training._links?.training?.href;
+    if (!trainingLink) {
+      setTrainingActionError('Cannot delete training without a valid link.');
+      return;
+    }
+
+    try {
+      setDeletingTrainingId(training.id);
+      await deleteTraining(trainingLink);
+      setTrainings((prev) => prev.filter((item) => item.id !== training.id));
+    } catch (err) {
+      console.error(err);
+      setTrainingActionError('Failed to delete training.');
+    } finally {
+      setDeletingTrainingId(null);
     }
   };
 
@@ -295,48 +329,65 @@ const TrainingsPage = () => {
 
       {isLoading && <p>Loading trainings…</p>}
       {error && <p>{error}</p>}
+      {trainingActionError && (
+        <p className="training-form__error" role="alert">
+          {trainingActionError}
+        </p>
+      )}
 
       {!isLoading && !error && (
-        <table>
-          <thead>
-            <tr>
-              <th>
-                <button type="button" onClick={() => toggleSort('customer')}>
-                  Customer{renderSortHint('customer')}
-                </button>
-              </th>
-              <th>
-                <button type="button" onClick={() => toggleSort('activity')}>
-                  Activity{renderSortHint('activity')}
-                </button>
-              </th>
-              <th>
-                <button type="button" onClick={() => toggleSort('duration')}>
-                  Duration (min){renderSortHint('duration')}
-                </button>
-              </th>
-              <th>
-                <button type="button" onClick={() => toggleSort('date')}>
-                  Date{renderSortHint('date')}
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedTrainings.map((training) => (
-              <tr key={training.id}>
-                <td>
-                  {training.customer
-                    ? `${training.customer.firstname} ${training.customer.lastname}`
-                    : '—'}
-                </td>
-                <td>{training.activity}</td>
-                <td>{training.duration}</td>
-                <td>{formatDate(training.date)}</td>
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <button type="button" onClick={() => toggleSort('customer')}>
+                    Customer{renderSortHint('customer')}
+                  </button>
+                </th>
+                <th>
+                  <button type="button" onClick={() => toggleSort('activity')}>
+                    Activity{renderSortHint('activity')}
+                  </button>
+                </th>
+                <th>
+                  <button type="button" onClick={() => toggleSort('duration')}>
+                    Duration (min){renderSortHint('duration')}
+                  </button>
+                </th>
+                <th>
+                  <button type="button" onClick={() => toggleSort('date')}>
+                    Date{renderSortHint('date')}
+                  </button>
+                </th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedTrainings.map((training) => (
+                <tr key={training.id}>
+                  <td>
+                    {training.customer
+                      ? `${training.customer.firstname} ${training.customer.lastname}`
+                      : '—'}
+                  </td>
+                  <td>{training.activity}</td>
+                  <td>{training.duration}</td>
+                  <td>{formatDate(training.date)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTraining(training)}
+                      disabled={deletingTrainingId === training.id}
+                    >
+                      {deletingTrainingId === training.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

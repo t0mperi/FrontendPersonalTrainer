@@ -189,3 +189,13 @@ export const createTraining = async (
   }
 };
 
+export const deleteTraining = async (trainingUrl: string): Promise<void> => {
+  const response = await fetch(trainingUrl, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete training: ${response.statusText}`);
+  }
+};
+
