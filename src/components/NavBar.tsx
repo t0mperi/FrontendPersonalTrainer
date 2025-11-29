@@ -4,6 +4,7 @@ const links = [
   { to: '/', label: 'Customers', end: true },
   { to: '/trainings', label: 'Trainings' },
   { to: '/calendar', label: 'Calendar' },
+  { to: '/statistics', label: 'Statistics' },
 ];
 
 const NavBar = () => {
