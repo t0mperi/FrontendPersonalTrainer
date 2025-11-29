@@ -219,3 +219,19 @@ thead button {
   padding: 2rem;
   color: #777;
 }
+
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-toolbar .toolbar-field {
+  flex: 1 1 320px;
+}
+
+.page-toolbar button {
+  height: 42px;
+}

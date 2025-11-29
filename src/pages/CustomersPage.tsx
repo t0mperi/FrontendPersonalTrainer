@@ -17,6 +17,15 @@ const createIdFromSelfLink = (selfHref?: string) => {
 
 type SortKey = 'name' | 'email' | 'city' | 'streetaddress';
 type SortDirection = 'asc' | 'desc';
+const CSV_HEADERS = [
+  'First name',
+  'Last name',
+  'Email',
+  'Phone',
+  'Street address',
+  'Postcode',
+  'City',
+];
 
 const toCustomerRow = (customer: CustomerDto): CustomerRow => ({
   ...customer,
@@ -206,6 +215,45 @@ const CustomersPage = () => {
     }
   };
 
+  const formatCsvValue = (value: string | null | undefined) => {
+    const safe = (value ?? '').replace(/"/g, '""');
+    return `"${safe}"`;
+  };
+
+  const handleExportCsv = () => {
+    if (sortedCustomers.length === 0) {
+      return;
+    }
+
+    const rows = sortedCustomers.map((customer) =>
+      [
+        customer.firstname,
+        customer.lastname,
+        customer.email,
+        customer.phone,
+        customer.streetaddress,
+        customer.postcode,
+        customer.city,
+      ].map(formatCsvValue)
+    );
+
+    const csvContent = [
+      CSV_HEADERS.map(formatCsvValue).join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `customers-${timestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const renderSortHint = (key: SortKey) => {
     if (sortKey !== key) return null;
     return sortDirection === 'asc' ? ' ▲' : ' ▼';
@@ -322,15 +370,25 @@ const CustomersPage = () => {
         </div>
       </form>
 
-      <div>
-        <label htmlFor="customer-search">Search customers</label>
-        <input
-          id="customer-search"
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Name, email, city..."
-        />
+      <div className="page-toolbar">
+        <div className="toolbar-field">
+          <label htmlFor="customer-search">Search customers</label>
+          <input
+            id="customer-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Name, email, city..."
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={!sortedCustomers.length}
+          aria-label="Export visible customers to CSV"
+        >
+          Export CSV
+        </button>
       </div>
 
       {isLoading && <p>Loading customers…</p>}
