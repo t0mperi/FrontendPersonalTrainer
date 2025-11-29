@@ -4,10 +4,12 @@ import type { View, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en';
 import { fetchTrainings } from '../services/personalTrainerApi';
 import type { TrainingDto } from '../services/personalTrainerApi';
 
-moment.locale('fi');
+moment.locale('en');
+dayjs.locale('en');
 
 const localizer = momentLocalizer(moment);
 
@@ -172,7 +174,7 @@ const CalendarPage = () => {
           onNavigate={handleNavigate}
           views={['month', 'week', 'day']}
           eventPropGetter={eventStyleGetter}
-          culture="fi"
+          culture="en"
           messages={{
             next: 'Next',
             previous: 'Back',
